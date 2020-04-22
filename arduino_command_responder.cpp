@@ -38,13 +38,19 @@ const int TIMER = 80;//time to hold the sensor
 int counter_T1 = 0;
 int counter_T2 = 0;
 unsigned long delayStart = 0;
-const int BUTTONONE = 4; // Naming switch button pin
+
+boolean toggleSpeech = false;
+const int toggleButton = 3;
+int BUTTONstateToggle = 0;
+const int BUTTONONE = 5; // Naming switch button pin
 int BUTTONstateONE = 0; // A variable to store Button Status / Input
-const int BUTTONTWO = 6; // Naming switch button pin
+const int BUTTONTWO = 2; // Naming switch button pin
 int BUTTONstateTWO = 0; // A variable to store Button Status / 
 boolean saidyes = false;
+boolean saidno = false;
 
 int countyes = 0;
+int countno = 0;
 ///new
 void RespondToCommand(tflite::ErrorReporter* error_reporter,
                       int32_t current_time, const char* found_command,
@@ -68,7 +74,7 @@ void RespondToCommand(tflite::ErrorReporter* error_reporter,
     // If we hear a command, light up the appropriate LED.
     // Note: The RGB LEDs on the Arduino Nano 33 BLE
     // Sense are on when the pin is LOW, off when HIGH.
-    if (found_command[0] == 'y') {
+    if (found_command[0] == 's') {
       last_command_time = current_time;
       saidyes = true;
       digitalWrite(LEDG, LOW);  // Green for yes
@@ -77,6 +83,7 @@ void RespondToCommand(tflite::ErrorReporter* error_reporter,
 
     if (found_command[0] == 'n') {
       last_command_time = current_time;
+      saidno = true;
       digitalWrite(LEDR, LOW);  // Red for no
     }
 
@@ -114,11 +121,21 @@ void RespondToCommand(tflite::ErrorReporter* error_reporter,
 
 void bleLoop(){
    BUTTONstateONE = digitalRead(BUTTONONE);  // Reading button status / input
-  BUTTONstateTWO = digitalRead(BUTTONTWO);  // Reading button status / input
+  BUTTONstateTWO = digitalRead(BUTTONTWO); 
+  BUTTONstateToggle = digitalRead(toggleButton);
+   Serial.println("buttonstate one" + BUTTONstateONE);
+   Serial.println("buttonstate TWO" + BUTTONstateTWO);
+  // Reading button status / input
   // poll for BLE events
   BLE.poll();
   int buttonValue = 0;// read thresholds
   ///////////////////have to filter here ////////////////////
+
+  if(BUTTONstateToggle == HIGH && toggleSpeech == false){
+    toggleSpeech = true;
+    digitalWrite(LEDG, LOW);  // Green for toggled
+  }
+
 
   if(saidyes == true && countyes <10){
     countyes++;
@@ -128,19 +145,27 @@ void bleLoop(){
     }
   }
   
-  
- if (BUTTONstateONE == HIGH || saidyes == true){
-    SendMessage((byte)1);
-   // Serial.println("threshold");
+   if(saidno == true && countno <10){
+    countno++;
+    if(countno == 8){
+      saidno = false;
+      countno =0;
+    }
   }
-  else if(BUTTONstateTWO == HIGH){
+
+  
+ if (BUTTONstateONE == HIGH || (saidyes == true && toggleSpeech == true)){
+    SendMessage((byte)1);
+    Serial.println("threshold");
+  }
+  else if(BUTTONstateTWO == HIGH || (saidno == true&& toggleSpeech == true)){
  
      SendMessage((byte)2);
-   // Serial.println("TWO");
+    Serial.println("TWO");
   }
   else{
     SendMessage((byte)0);
-   // Serial.println("0");
+    Serial.println("0");
   }
 
 }
